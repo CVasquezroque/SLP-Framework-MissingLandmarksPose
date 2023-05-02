@@ -56,8 +56,7 @@ def obtain_frames(filename):
     cap.release()
     cv2.destroyAllWindows()
     return np.array(video_frames)
-#PUCP_PSL_DGI305
-#PUCP_PSL_DGI156
+
 PATH = 'datasets\\AEC\\Videos\\SEGMENTED_SIGN\\'
 OUT_PATH = 'datasets\\AEC\\Videos\\VISUALIZATION\\'
 if not os.path.exists(OUT_PATH):

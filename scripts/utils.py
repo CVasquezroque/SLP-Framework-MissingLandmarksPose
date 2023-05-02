@@ -5,6 +5,26 @@ import matplotlib.pyplot as plt
 import cv2
 from collections import Counter
 import scipy.stats as stats
+import argparse
+
+def get_args():
+    """
+    Process the command line arguments.
+
+    Returns:
+    args: Namespace object that contains the parsed command line arguments
+        dataset: str, the name of the dataset to process
+        min_instances: int, the minimum number of instances to include a class on subsets
+    """
+    parser = argparse.ArgumentParser(description='Process dataset name.')
+    parser.add_argument('--dataset', type=str, help='Dataset name')
+    parser.add_argument('--min_instances', type=int, help='Min instances to include a class on subsets')
+    parser.add_argument('--train', type=bool, default=False, help='Train Flag')
+    parser.add_argument('--val', type=bool, default=False, help='Validation Flag')
+    args = parser.parse_args()
+    return args
+
+
 
 def obtain_frames(filename):
     cap = cv2.VideoCapture(filename)
@@ -23,6 +43,14 @@ def obtain_frames(filename):
     return np.array(video_frames)
 
 def count_false_sequences(arr):
+    """Counts the number of consecutive false values in a boolean array.
+
+    Parameters:
+        arr (numpy.ndarray): The boolean array to analyze.
+
+    Returns:
+        int: The number of consecutive false values in `arr`.
+    """
     count = 0
     curr_false_count = 0
     for i in range(len(arr)):
@@ -35,7 +63,17 @@ def count_false_sequences(arr):
     if curr_false_count > 0:
         count += 1
     return count
+
 def max_consecutive_trues(arg1):
+    """
+    Calculates the length of the longest consecutive subsequence of `True` values in a boolean array.
+
+    Parameters:
+        arg1 (array): A boolean array.
+
+    Returns:
+        int: The length of the longest consecutive subsequence of `True` values in `arg1`.
+    """
     consecutive_trues = 0
     max_consecutive_trues = 0
     for i in arg1:
@@ -45,47 +83,18 @@ def max_consecutive_trues(arg1):
         else:
             consecutive_trues = 0
     return max_consecutive_trues
-
-def saving_reduced_hdf5(classes,videoName,false_seq,percentage_groups,max_consec,data,partial_output_name = "DATASET",kp_est_chosed = "mediapipe",val=False,train=False):
-    if val and not train:
-        save_path = f'../split_reduced/{partial_output_name}--{kp_est_chosed}-Val.hdf5'
-    elif train and not val:
-        save_path = f'../split_reduced/{partial_output_name}--{kp_est_chosed}-Train.hdf5'
-    elif not val and not train:
-        save_path = f'../output_reduced/{partial_output_name}--{kp_est_chosed}.hdf5'
-    h5_file = h5py.File(save_path, 'w')
-
-    for pos, (c, v, d, f, p, m) in enumerate(zip(classes, videoName, data,false_seq,percentage_groups,max_consec)):
-        grupo_name = f"{pos}"
-        h5_file.create_group(grupo_name)
-        h5_file[grupo_name]['video_name'] = v # video name (str)
-        h5_file[grupo_name]['label'] = c # classes (str)
-        h5_file[grupo_name]['data'] = d # data (Matrix)
-        h5_file[grupo_name]['in_range_sequences'] = f # false_seq (array: int data)
-        h5_file[grupo_name]['percentage_group'] = p # percentage of reduction group (array: categorial data)
-        h5_file[grupo_name]['max_percentage'] = m # percentage of the max length of consecutive missing sequences (array: float data)
-        
-    h5_file.close()
-
-
-def obtain_frames(filename):
-    cap = cv2.VideoCapture(filename)
-    video_frames = []
-    if (cap.isOpened() == False):
-        print('Error')
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if ret == True:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            video_frames.append(frame)
-        else:
-            break
-    cap.release()
-    cv2.destroyAllWindows()
-    return np.array(video_frames)
-
 def read_h5_indexes(path):
-
+    """
+    Read data from an HDF5 file and return the classes, video names, and data as lists.
+    
+    Parameters:
+    - path (str): a string representing the path to the HDF5 file
+    
+    Returns:
+    - classes (list): a list of strings representing the class labels for the data
+    - videoName (list): a list of strings representing the video names for the data
+    - data (list): a list of arrays representing the data
+    """
     classes = []
     videoName = []
     data = []
@@ -105,7 +114,70 @@ def read_h5_indexes(path):
                 data.append(f[index]["data"][...]) #indexesLandmarks    
     return classes, videoName, data
 
+
+def saving_reduced_hdf5(classes, videoName, data, partial_output_name="DATASET", kp_est_chosed="mediapipe", val=False, train=False, *args, **kwargs):
+    """
+    Save the given classes, video names, and data to an HDF5 file, along with additional arguments if provided.
+    
+    Parameters:
+    - classes (list): a list of strings representing the class labels for the data
+    - videoName (list): a list of strings representing the video names for the data
+    - data (list): a list of arrays representing the data
+    - partial_output_name (str): a string to be included in the output file name (default: "DATASET")
+    - kp_est_chosed (str): a string representing the chosen keypoint estimator (default: "mediapipe")
+    - val (bool): a boolean indicating if the data is validation data (default: False)
+    - train (bool): a boolean indicating if the data is training data (default: False)
+    - args: additional arguments to be included in the HDF5 file, passed as positional arguments
+    - kwargs: additional arguments to be included in the HDF5 file, passed as keyword arguments
+
+    """
+    if val and not train:
+        save_path = f'../split_reduced/{partial_output_name}--{kp_est_chosed}-Val.hdf5'
+    elif train and not val:
+        save_path = f'../split_reduced/{partial_output_name}--{kp_est_chosed}-Train.hdf5'
+    elif not val and not train:
+        save_path = f'../output_reduced/{partial_output_name}--{kp_est_chosed}.hdf5'
+    h5_file = h5py.File(save_path, 'w')
+
+    for pos, (c, v, d) in enumerate(zip(classes, videoName, data)):
+        grupo_name = f"{pos}"
+        h5_file.create_group(grupo_name)
+        h5_file[grupo_name]['video_name'] = v # video name (str)
+        h5_file[grupo_name]['label'] = c # classes (str)
+        h5_file[grupo_name]['data'] = d # data (Matrix)
+
+        # Check if false_seq, percentage_groups, and max_consec were provided as arguments
+        if args:
+            false_seq, percentage_groups, max_consec = args
+            h5_file[grupo_name]['in_range_sequences'] = false_seq # false_seq (array: int data)
+            h5_file[grupo_name]['percentage_group'] = percentage_groups # percentage of reduction group (array: categorial data)
+            h5_file[grupo_name]['max_percentage'] = max_consec # percentage of the max length of consecutive missing sequences (array: float data)
+
+        # Check if false_seq, percentage_groups, and max_consec were provided as keyword arguments
+        elif kwargs:
+            false_seq = kwargs.get("false_seq")
+            percentage_groups = kwargs.get("percentage_groups")
+            max_consec = kwargs.get("max_consec")
+            if false_seq:
+                h5_file[grupo_name]['in_range_sequences'] = false_seq # false_seq (array: int data)
+            if percentage_groups:
+                h5_file[grupo_name]['percentage_group'] = percentage_groups # percentage of reduction group (array: categorial data)
+            if max_consec:
+                h5_file[grupo_name]['max_percentage'] = max_consec # percentage of the max length of consecutive missing sequences (array: float data)
+
+    h5_file.close()
+
+
 def plot_data(dataArr, timestep, image=None,outpath='output'):
+    """
+    Plot a single frame of 2D landmark data.
+
+    Parameters:
+        dataArr (np.ndarray): A 3D numpy array of landmark data of shape (timesteps, 1, num_landmarks*2)
+        timestep (int): The timestep to plot
+        image: An optional image to plot underneath the landmark data. Defaults to None.
+        outpath (str, optional): The path to save the output plot. Defaults to 'output'.
+    """
     x, y = np.split(dataArr, 2, axis=1)
     plt.figure()
     if image is not None:
@@ -125,6 +197,15 @@ def plot_data(dataArr, timestep, image=None,outpath='output'):
     plt.savefig(outpath)
 
 def plot_length_distribution(arr_lengths  , new_arr_lengths, filename):
+    """
+    Parameters:
+    arr_lengths (numpy.ndarray): Array of video lengths before processing.
+    new_arr_lengths (numpy.ndarray): Array of video lengths after processing.
+    filename (str): Name of the file to save the plot.
+
+    Returns:
+    None
+    """
     # plot histograms using seaborn
     sns.set_style('whitegrid')
     sns.set(font_scale=1.2, font='serif')
@@ -156,6 +237,18 @@ def show_statistics(array):
     print('Maximum:', max_value)
 
 def get_missing_landmarks(x_arr,left_hand_slice,right_hand_slice):
+    """
+    Check if any landmarks in a given slice of left or right hand are missing in any of the timesteps.
+
+    Parameters:
+    x_arr (numpy.ndarray): Array of landmark coordinates.
+    left_hand_slice (slice): Slice object representing the range of the landmarks for the left hand.
+    right_hand_slice (slice): Slice object representing the range of the landmarks for the right hand.
+
+    Returns:
+    all_same_landmarks (numpy.ndarray): Boolean array indicating if all landmarks in the given slice are the same
+                                        in all timesteps.
+    """
     left_hand_landmarks = x_arr[:,0,left_hand_slice]
     right_hand_landmarks = x_arr[:,0,right_hand_slice]
     # Check if all landmarks are the same in a timestep for left and right hand
@@ -165,6 +258,20 @@ def get_missing_landmarks(x_arr,left_hand_slice,right_hand_slice):
     return all_same_landmarks
 
 def getting_filtered_data(dataArrs,reduced_dataArrs, videoName, classes, min_instances = 15, banned_classes=['???', 'NNN', '']):
+    """
+    Filter data by selecting classes with at least min_instances instances and not in banned_classes.
+    Also calculates the maximum consecutive frames where all hand landmarks are the same, the number of false
+    sequences and the percentage reduction of each video after it was processed.
+
+    Parameters:
+    dataArrs (list): A list of numpy arrays representing data for each video.
+    reduced_dataArrs (list): A list of numpy arrays representing reduced data for each video.
+    videoName (list): A list of strings representing the names of each video.
+    classes (list): A list of strings representing the class labels for each video.
+    min_instances (int): Minimum number of instances for each class to be considered valid. Default is 15.
+    banned_classes (list): A list of strings representing the class labels to be banned from the filtered data. Default is ['???', 'NNN', ''].
+
+    """
     # Get class counts
     class_counts = Counter(classes)
     
@@ -210,6 +317,18 @@ def getting_filtered_data(dataArrs,reduced_dataArrs, videoName, classes, min_ins
 
 
 def filter_data(dataArrs, videoName, classes, min_instances = 20, banned_classes=['???', 'NNN', '']):
+    """
+    Filter data by selecting classes with at least min_instances instances and not in banned_classes.
+
+    Parameters:
+    dataArrs (list): A list of numpy arrays representing data for each video.
+    reduced_dataArrs (list): A list of numpy arrays representing reduced data for each video.
+    videoName (list): A list of strings representing the names of each video.
+    classes (list): A list of strings representing the class labels for each video.
+    min_instances (int): Minimum number of instances for each class to be considered valid. Default is 15.
+    banned_classes (list): A list of strings representing the class labels to be banned from the filtered data. Default is ['???', 'NNN', ''].
+
+    """
     # Get class counts
     class_counts = Counter(classes)
     
@@ -230,9 +349,26 @@ def filter_data(dataArrs, videoName, classes, min_instances = 20, banned_classes
 
 
 def filter_same_landmarks(h5_path, left_hand_slice=slice(31, 50), right_hand_slice=slice(51,70), consecutive_trues=None, filtering_videos=True):
-    
+    """
+    Filters the data in an HDF5 file based on whether the frames have the same landmarks on the left and right hands.
+
+    Args:
+        h5_path (str): Path to the HDF5 file.
+        left_hand_slice (slice): Slice of landmarks to use for the left hand. Default is `slice(31, 50)`.
+        right_hand_slice (slice): Slice of landmarks to use for the right hand. Default is `slice(51,70)`.
+        consecutive_trues (callable): Function that determines whether there are consecutive frames with the same landmarks. 
+            Should take a 1D numpy boolean array as input and return a boolean. Default is `None`.
+        filtering_videos (bool): Whether to filter out videos where all frames have missing landmarks. Default is `True`.
+
+    Returns:
+        - The filtered classes.
+        - The filtered video names.
+        - The filtered data arrays with missing landmarks removed.
+        - The original data arrays with missing landmarks preserved (but without videos with zero frames after reducing missing landmarks).
+        
+    """
     classes, videoName, dataArrs = read_h5_indexes(h5_path)
-    print(len(dataArrs))
+    print("Size of data:",len(dataArrs))
     arrData = np.array(dataArrs, dtype=object)
 
     new_arrData = []

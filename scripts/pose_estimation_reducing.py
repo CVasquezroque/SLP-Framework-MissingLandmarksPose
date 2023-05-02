@@ -2,14 +2,21 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from utils import read_h5_indexes, filter_same_landmarks, filter_data, saving_reduced_hdf5, plot_length_distribution
+import os
+from utils import read_h5_indexes, filter_same_landmarks, filter_data, saving_reduced_hdf5, plot_length_distribution, get_args
 
-DATASET = 'AUTSL'
+args = get_args()
+
+DATASET = args.dataset
 KPMODEL = 'mediapipe'
 print(DATASET)
 print(KPMODEL)
 
 h5_path = f'../output/{DATASET}--{KPMODEL}.hdf5'
+if not os.path.exist('../output_reduced'):
+    os.makedirs('../output_reduced')
+if not os.path.exist('../split_reduced'):
+    os.makedirs('../split_reduced')
 
 classes, videoName, dataArrs = read_h5_indexes(h5_path)
 
@@ -24,7 +31,7 @@ has_consecutive_trues = lambda arg1,arg2: np.any(np.convolve(arg1.astype(int), n
 
 
 
-min_instances = 15
+min_instances = args.min_instances
 bann = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
 if DATASET == "AEC":
     bann = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
@@ -38,14 +45,12 @@ else:
 #PUCP
 # self.list_labels_banned = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
 # self.list_labels_banned += ["sí","ella","uno","ese","ah","dijo","llamar"]
-new_classes, new_videoName, new_arrData,arrData_without_empty,max_consec = filter_same_landmarks(h5_path,left_hand_slice=slice(501, 521), right_hand_slice=slice(522,542))
-print(f"Mean value of max consecutive frames with missing landmarks {np.mean(max_consec['Max']):.2f} for {DATASET} dataset")
-print(f"Mean value of percentage of consecutive frames with missing landmarks {np.mean(max_consec['Max Percentage']):.2f} for {DATASET} dataset")
+new_classes, new_videoName, new_arrData,arrData_without_empty = filter_same_landmarks(h5_path,left_hand_slice=slice(501, 521), right_hand_slice=slice(522,542))
 
-fdataArrs, fvideoNames, fclasses, fvalid_classes, fvalid_classes_total , _= filter_data(arrData, videoName, classes, min_instances = min_instances, banned_classes=bann)
-filtered_dataArrs, filtered_videoNames, filtered_classes, valid_classes,valid_classes_total, _  = filter_data(arrData_without_empty, new_videoName, new_classes, min_instances = min_instances, banned_classes=bann)
-_, _, fnew_classes, fnew_valid_classes, fnew_valid_classes_total, _ = filter_data(arrData_without_empty, new_videoName, new_classes, min_instances = min_instances, banned_classes=[])
-filtered_dataArrs2, filtered_videoNames2, filtered_classes2, valid_classes2, valid_classes_total2, _ = filter_data(new_arrData, new_videoName, new_classes, min_instances = min_instances, banned_classes=bann)
+fdataArrs, fvideoNames, fclasses, fvalid_classes, fvalid_classes_total= filter_data(arrData, videoName, classes, min_instances = min_instances, banned_classes=bann)
+filtered_dataArrs, filtered_videoNames, filtered_classes, valid_classes,valid_classes_total = filter_data(arrData_without_empty, new_videoName, new_classes, min_instances = min_instances, banned_classes=bann)
+_, _, fnew_classes, fnew_valid_classes, fnew_valid_classes_total= filter_data(arrData_without_empty, new_videoName, new_classes, min_instances = min_instances, banned_classes=[])
+filtered_dataArrs2, filtered_videoNames2, filtered_classes2, valid_classes2, valid_classes_total2 = filter_data(new_arrData, new_videoName, new_classes, min_instances = min_instances, banned_classes=bann)
 
 print("#################################")
 print("arrData Original Dataset with all videos")
@@ -81,192 +86,192 @@ saving_reduced_hdf5(filtered_classes2,filtered_videoNames2,filtered_dataArrs2,pa
 # Assuming filtered dataset lists: new_classes, new_videoName, new_arrData
 
 
-# Step 1: Extract relevant information for each video
-video_info = []
+# # Step 1: Extract relevant information for each video
+# video_info = []
 
-for i in range(len(new_videoName)):
-    original_video_length = arrData_without_empty[i].shape[0]
-    if new_videoName[i] in new_videoName:
-        index_new_arr = new_videoName.index(new_videoName[i])
-        filtered_video_length = new_arrData[index_new_arr].shape[0]
+# for i in range(len(new_videoName)):
+#     original_video_length = arrData_without_empty[i].shape[0]
+#     if new_videoName[i] in new_videoName:
+#         index_new_arr = new_videoName.index(new_videoName[i])
+#         filtered_video_length = new_arrData[index_new_arr].shape[0]
 
-        # Calculate number of missing landmark frames
-        num_missing_landmark_frames = original_video_length - filtered_video_length
+#         # Calculate number of missing landmark frames
+#         num_missing_landmark_frames = original_video_length - filtered_video_length
 
-        # Calculate percentage of missing landmark frames
-        perc_missing_landmark_frames = (num_missing_landmark_frames / original_video_length) * 100
+#         # Calculate percentage of missing landmark frames
+#         perc_missing_landmark_frames = (num_missing_landmark_frames / original_video_length) * 100
 
-    else:
-        num_missing_landmark_frames = original_video_length
-        perc_missing_landmark_frames = 100
+#     else:
+#         num_missing_landmark_frames = original_video_length
+#         perc_missing_landmark_frames = 100
     
-    video_info.append({
-        'name': new_videoName[i],
-        'class': new_classes[i],
-        'original_length': original_video_length,
-        'missing_landmark_frames': num_missing_landmark_frames,
-        'perc_missing_landmark_frames': perc_missing_landmark_frames
-    })
+#     video_info.append({
+#         'name': new_videoName[i],
+#         'class': new_classes[i],
+#         'original_length': original_video_length,
+#         'missing_landmark_frames': num_missing_landmark_frames,
+#         'perc_missing_landmark_frames': perc_missing_landmark_frames
+#     })
 
-# Step 2: Aggregate data and analyze the distribution of missing landmarks
+# # Step 2: Aggregate data and analyze the distribution of missing landmarks
 
-# Extract the percentage of missing landmark frames for all videos
-perc_missing_landmark_frames_all = [video['perc_missing_landmark_frames'] for video in video_info]
+# # Extract the percentage of missing landmark frames for all videos
+# perc_missing_landmark_frames_all = [video['perc_missing_landmark_frames'] for video in video_info]
 
-# Calculate mean and median percentage of missing landmark frames
-mean_perc_missing_landmark_frames = np.mean(perc_missing_landmark_frames_all)
-median_perc_missing_landmark_frames = np.median(perc_missing_landmark_frames_all)
+# # Calculate mean and median percentage of missing landmark frames
+# mean_perc_missing_landmark_frames = np.mean(perc_missing_landmark_frames_all)
+# median_perc_missing_landmark_frames = np.median(perc_missing_landmark_frames_all)
 
-print(f"Mean Percentage of Missing Landmark Frames: {mean_perc_missing_landmark_frames}")
-print(f"Median Percentage of Missing Landmark Frames: {median_perc_missing_landmark_frames}")
-sns.set(font_scale=1.2, font='serif')
-sns.set_style('whitegrid')
-# Plot a histogram of the percentage of missing landmark frames
-sns.histplot(perc_missing_landmark_frames_all, stat='percent', bins=10, kde=False, edgecolor='black')
-plt.xlabel('Percentage of Frames with Missing Landmarks')
-plt.ylabel(f'% of Total Frames in Dataset {DATASET} ')
-plt.savefig(f"ESANN_2023/Figures/{DATASET}_Histogram_Distribution.png",dpi=300)
-
-
-# # Define the total width and height of each rectangle
-# total_width = 100
-# rect_height = 9
-
-# # Define the color for non-missing landmarks
-# non_missing_color = '#e6e6e6'
-
-# # Calculate the width of each rectangle
-# widths = [perc/100 * total_width for perc in perc_missing_landmark_frames_all]
-
-# # Plot the rectangles
-# fig, ax = plt.subplots(figsize=(10, 7))
-# rects1 = ax.barh(y=range(100, 0, -10), width=total_width, height=rect_height, color=non_missing_color, edgecolor='black')
-# rects2 = ax.barh(y=range(100, 0, -10), width=widths, height=rect_height, color='red', edgecolor='black')
-
-# # Customize the plot
-# ax.set_xlim(0, 100)
-# ax.set_ylim(0, 105)
-# ax.set_yticks(range(0, 110, 10))
-# ax.set_yticklabels([f'{i}%' for i in range(0, 110, 10)])
-# ax.set_xlabel('Percentage of Frames with Missing Landmarks')
-# ax.set_ylabel(f'% of Total Frames in Dataset {DATASET} ')
-# ax.set_title('Histogram of Percentage of Missing Landmark Frames')
-# plt.show()
+# print(f"Mean Percentage of Missing Landmark Frames: {mean_perc_missing_landmark_frames}")
+# print(f"Median Percentage of Missing Landmark Frames: {median_perc_missing_landmark_frames}")
+# sns.set(font_scale=1.2, font='serif')
+# sns.set_style('whitegrid')
+# # Plot a histogram of the percentage of missing landmark frames
+# sns.histplot(perc_missing_landmark_frames_all, stat='percent', bins=10, kde=False, edgecolor='black')
+# plt.xlabel('Percentage of Frames with Missing Landmarks')
+# plt.ylabel(f'% of Total Frames in Dataset {DATASET} ')
+# plt.savefig(f"ESANN_2023/Figures/{DATASET}_Histogram_Distribution.png",dpi=300)
 
 
-arr_lengths = np.array(list(map(lambda x: x.shape[0], arrData)))
-new_arr_lengths = np.array(list(map(lambda x: x.shape[0], new_arrData)))
-plot_length_distribution(arr_lengths,new_arr_lengths,f'ESANN_2023/Figures/{DATASET}_length_distribution_v1.png')
+# # # Define the total width and height of each rectangle
+# # total_width = 100
+# # rect_height = 9
 
-arr_lengths = np.array(list(map(lambda x: x.shape[0], filtered_dataArrs)))
-new_arr_lengths = np.array(list(map(lambda x: x.shape[0], filtered_dataArrs2)))
+# # # Define the color for non-missing landmarks
+# # non_missing_color = '#e6e6e6'
 
-plot_length_distribution(arr_lengths,new_arr_lengths,f'ESANN_2023/Figures/{DATASET}_length_distribution_v2.png')
+# # # Calculate the width of each rectangle
+# # widths = [perc/100 * total_width for perc in perc_missing_landmark_frames_all]
 
+# # # Plot the rectangles
+# # fig, ax = plt.subplots(figsize=(10, 7))
+# # rects1 = ax.barh(y=range(100, 0, -10), width=total_width, height=rect_height, color=non_missing_color, edgecolor='black')
+# # rects2 = ax.barh(y=range(100, 0, -10), width=widths, height=rect_height, color='red', edgecolor='black')
 
-
-# First, define the filtered_classes
-# Then, create an empty dictionary
-plt.figure()
-class_dict = {}
-
-# Loop through each class in filtered_classes
-for n,c in enumerate(filtered_classes):
-    # Initialize empty lists for original and reduced lengths
-    class_dict[c] = {
-            'Original Length': [],
-            'Reduced Length': []
-        }
-print(class_dict.keys())
-print(len(filtered_dataArrs))
-print(len(filtered_dataArrs2))
-for n,arr in enumerate(filtered_dataArrs):
-    c = filtered_classes[n]
-    class_dict[c]['Original Length'].append(arr.shape[0])
-    class_dict[c]['Reduced Length'].append(filtered_dataArrs2[n].shape[0])
-print(class_dict)
+# # # Customize the plot
+# # ax.set_xlim(0, 100)
+# # ax.set_ylim(0, 105)
+# # ax.set_yticks(range(0, 110, 10))
+# # ax.set_yticklabels([f'{i}%' for i in range(0, 110, 10)])
+# # ax.set_xlabel('Percentage of Frames with Missing Landmarks')
+# # ax.set_ylabel(f'% of Total Frames in Dataset {DATASET} ')
+# # ax.set_title('Histogram of Percentage of Missing Landmark Frames')
+# # plt.show()
 
 
-df = []
-for c in class_dict:
-    for l in ['Original Length', 'Reduced Length']:
-        for v in class_dict[c][l]:
-            df.append({'Class': c, 'Length': l, 'Value': v})
-df = pd.DataFrame(df)
+# arr_lengths = np.array(list(map(lambda x: x.shape[0], arrData)))
+# new_arr_lengths = np.array(list(map(lambda x: x.shape[0], new_arrData)))
+# plot_length_distribution(arr_lengths,new_arr_lengths,f'ESANN_2023/Figures/{DATASET}_length_distribution_v1.png')
 
+# arr_lengths = np.array(list(map(lambda x: x.shape[0], filtered_dataArrs)))
+# new_arr_lengths = np.array(list(map(lambda x: x.shape[0], filtered_dataArrs2)))
 
-print(df.head())
-# Create a new column with the start letter of each class name
-try:
-    df['Start Letter'] = df['Class'].str[0]
-except:
-    df['Start Letter'] = df['Class']
-# Sort the DataFrame by the 'Start Letter' column and the 'Value' column
-df = df.sort_values(['Start Letter', 'Value'])
-
-
-print(df.head())
+# plot_length_distribution(arr_lengths,new_arr_lengths,f'ESANN_2023/Figures/{DATASET}_length_distribution_v2.png')
 
 
 
-# Set font size and family
-sns.set(font_scale=1.75, font='Times New Roman')
-sns.set_style('whitegrid')
+# # First, define the filtered_classes
+# # Then, create an empty dictionary
+# plt.figure()
+# class_dict = {}
 
-# Create nested boxplot
-sns.boxplot(data=df, x='Value', y='Class', hue='Length')
-plt.xlabel('Length')
-plt.ylabel('Class')
-# plt.show()
-plt.savefig(f'ESANN_2023/Figures/{DATASET}_boxplot.png')
-
-
-
-# Calculate the percentage reduction
-df['Percentage Reduction'] = (1 - (df['Value'] / df.groupby('Class')['Value'].transform('mean'))) * 100
-
-# Define the percentage reduction groups
-bins = [0, 20, 40, 60, 100]
-labels = ['0-20%', '20-40%', '40-60%', '80-100%']
-
-# Group the instances into percentage reduction groups
-df['Percentage Reduction Group'] = pd.cut(df['Percentage Reduction'], bins=bins, labels=labels)
+# # Loop through each class in filtered_classes
+# for n,c in enumerate(filtered_classes):
+#     # Initialize empty lists for original and reduced lengths
+#     class_dict[c] = {
+#             'Original Length': [],
+#             'Reduced Length': []
+#         }
+# print(class_dict.keys())
+# print(len(filtered_dataArrs))
+# print(len(filtered_dataArrs2))
+# for n,arr in enumerate(filtered_dataArrs):
+#     c = filtered_classes[n]
+#     class_dict[c]['Original Length'].append(arr.shape[0])
+#     class_dict[c]['Reduced Length'].append(filtered_dataArrs2[n].shape[0])
+# print(class_dict)
 
 
-plt.figure(figsize=(15,10))
-# Set the Seaborn style
-sns.set_style('whitegrid')
-
-# Create a violin plot with the percentage reduction group as x, original length as y, and gray palette
-sns.violinplot(x='Percentage Reduction Group', y='Value', data=df, palette='gray')
-
-# Set the x label and title
-
-plt.ylabel('\% of Frames Reduction')
-plt.title(f'Impact of Reduction of Frames with Missing Landmarks in {DATASET}')
+# df = []
+# for c in class_dict:
+#     for l in ['Original Length', 'Reduced Length']:
+#         for v in class_dict[c][l]:
+#             df.append({'Class': c, 'Length': l, 'Value': v})
+# df = pd.DataFrame(df)
 
 
-# Show the plot
-plt.savefig(f'ESANN_2023/Figures/{DATASET}_violin_plot.png')
+# print(df.head())
+# # Create a new column with the start letter of each class name
+# try:
+#     df['Start Letter'] = df['Class'].str[0]
+# except:
+#     df['Start Letter'] = df['Class']
+# # Sort the DataFrame by the 'Start Letter' column and the 'Value' column
+# df = df.sort_values(['Start Letter', 'Value'])
+
+
+# print(df.head())
 
 
 
-plt.figure(figsize=(15,10))
-# Set font size and family
-sns.set(font_scale=1.75, font='Times New Roman')
-sns.set_style('whitegrid')
+# # Set font size and family
+# sns.set(font_scale=1.75, font='Times New Roman')
+# sns.set_style('whitegrid')
 
-# Create a new column in the dataframe for percentage reduction group
-df['Percentage Reduction Group'] = pd.cut(df['Percentage Reduction'], bins=[0, 20, 40, 60, 100],
-                                          labels=['0-20%', '20-40%', '40-60%', '80-100%'])
+# # Create nested boxplot
+# sns.boxplot(data=df, x='Value', y='Class', hue='Length')
+# plt.xlabel('Length')
+# plt.ylabel('Class')
+# # plt.show()
+# plt.savefig(f'ESANN_2023/Figures/{DATASET}_boxplot.png')
 
-# Create nested boxplot
-sns.boxplot(data=df, y='Value', x='Percentage Reduction Group', hue='Length')
-plt.ylabel('Length')
-plt.xlabel('Percentage Reduction Group')
-plt.title(f'Impact of reduction of frames with missing landmarks in {DATASET}')
-plt.legend(title='Length')
-plt.savefig(f'ESANN_2023/Figures/{DATASET}_nested_boxplot.png')
+
+
+# # Calculate the percentage reduction
+# df['Percentage Reduction'] = (1 - (df['Value'] / df.groupby('Class')['Value'].transform('mean'))) * 100
+
+# # Define the percentage reduction groups
+# bins = [0, 20, 40, 60, 100]
+# labels = ['0-20%', '20-40%', '40-60%', '80-100%']
+
+# # Group the instances into percentage reduction groups
+# df['Percentage Reduction Group'] = pd.cut(df['Percentage Reduction'], bins=bins, labels=labels)
+
+
+# plt.figure(figsize=(15,10))
+# # Set the Seaborn style
+# sns.set_style('whitegrid')
+
+# # Create a violin plot with the percentage reduction group as x, original length as y, and gray palette
+# sns.violinplot(x='Percentage Reduction Group', y='Value', data=df, palette='gray')
+
+# # Set the x label and title
+
+# plt.ylabel('\% of Frames Reduction')
+# plt.title(f'Impact of Reduction of Frames with Missing Landmarks in {DATASET}')
+
+
+# # Show the plot
+# plt.savefig(f'ESANN_2023/Figures/{DATASET}_violin_plot.png')
+
+
+
+# plt.figure(figsize=(15,10))
+# # Set font size and family
+# sns.set(font_scale=1.75, font='Times New Roman')
+# sns.set_style('whitegrid')
+
+# # Create a new column in the dataframe for percentage reduction group
+# df['Percentage Reduction Group'] = pd.cut(df['Percentage Reduction'], bins=[0, 20, 40, 60, 100],
+#                                           labels=['0-20%', '20-40%', '40-60%', '80-100%'])
+
+# # Create nested boxplot
+# sns.boxplot(data=df, y='Value', x='Percentage Reduction Group', hue='Length')
+# plt.ylabel('Length')
+# plt.xlabel('Percentage Reduction Group')
+# plt.title(f'Impact of reduction of frames with missing landmarks in {DATASET}')
+# plt.legend(title='Length')
+# plt.savefig(f'ESANN_2023/Figures/{DATASET}_nested_boxplot.png')
 
 #########################
 

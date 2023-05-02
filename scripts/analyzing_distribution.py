@@ -7,25 +7,26 @@ import argparse
 import scipy.stats as stats
 
 # Local imports
-from utils import read_h5_indexes, filter_same_landmarks, filter_data
+from utils import read_h5_indexes, filter_same_landmarks, getting_filtered_data, get_args
 
 #########
 # Create an ArgumentParser object
-parser = argparse.ArgumentParser(description='Process dataset name.')
-# Add an argument for dataset name
-parser.add_argument('--dataset', type=str, help='Dataset name')
-parser.add_argument('--min_instances', type=int, help='Min instances to include a class on subsets')
-# Parse the command-line arguments
-args = parser.parse_args()
-
-########
+args = get_args()
 
 DATASET = args.dataset
 KPMODEL = 'mediapipe'
+VAL = args.val
+TRAIN = args.train
 print(DATASET)
 print(KPMODEL)
+print(f'Validation Flag set to {VAL} and Train Flag set to {TRAIN}')
 
-h5_path = f'../output/{DATASET}--{KPMODEL}.hdf5'
+if VAL and not TRAIN:
+    h5_path = f'../split_reduced/{DATASET}--{KPMODEL}-Val.hdf5'
+elif TRAIN and not VAL:
+    h5_path = f'../split_reduced/{DATASET}--{KPMODEL}-Train.hdf5'
+else:
+    h5_path = f'../output_reduced/{DATASET}--{KPMODEL}.hdf5'
 
 classes, videoName, dataArrs = read_h5_indexes(h5_path)
 
@@ -54,47 +55,32 @@ else:
 #PUCP
 # self.list_labels_banned = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
 # self.list_labels_banned += ["sí","ella","uno","ese","ah","dijo","llamar"]
-new_classes, new_videoName, new_arrData,arrData_without_empty,max_consec,_ = filter_same_landmarks(h5_path,left_hand_slice=slice(501, 521), right_hand_slice=slice(522,542))
-print(f"Mean value of max consecutive frames with missing landmarks {np.mean(max_consec['Max']):.2f} for {DATASET} dataset")
-print(f"Mean value of percentage of consecutive frames with missing landmarks {np.mean(max_consec['Max Percentage']):.2f} for {DATASET} dataset")
+min_instances = args.min_instances
+bann = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
+if DATASET == "AEC":
+    bann = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
+elif DATASET == "AUTSL":
+    bann = ['apple','computer','fish','kiss','later','no','orange','pizza','purple','secretary','shirt','sunday','take','water','yellow']
+elif DATASET == "PUCP_PSL_DGI156":
+    bann = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
+    bann += ["sí","ella","uno","ese","ah","dijo","llamar"]
+else:
+    bann = ["ya", "qué?", "qué", "bien", "dos", "ahí", "luego", "yo", "él", "tú","???","NNN"]
 
-fdataArrs, fvideoNames, fclasses, fvalid_classes, fvalid_classes_total = filter_data(arrData, videoName, classes, min_instances = min_instances, banned_classes=bann)
-filtered_dataArrs, filtered_videoNames, filtered_classes, valid_classes,valid_classes_total  = filter_data(arrData_without_empty, new_videoName, new_classes, min_instances = min_instances, banned_classes=bann)
-_, _, fnew_classes, fnew_valid_classes, fnew_valid_classes_total = filter_data(arrData_without_empty, new_videoName, new_classes, min_instances = min_instances, banned_classes=[])
-filtered_dataArrs2, filtered_videoNames2, filtered_classes2, valid_classes2, valid_classes_total2 = filter_data(new_arrData, new_videoName, new_classes, min_instances = min_instances, banned_classes=bann)
+new_classes, new_videoName, new_arrData,arrData_without_empty = filter_same_landmarks(h5_path,left_hand_slice=slice(501, 521), right_hand_slice=slice(522,542))
 
-print("#################################")
-print("arrData Original Dataset with all videos")
-print('classes:',len(fclasses))
-print('valid_classes:',len(fvalid_classes))
-print('valid_classes with non min instances:',len(fvalid_classes_total))
-print("#################################")
-print("Filtered same landmarks, baseline subset (0 frames videos substracted) without banning")
-print('classes:',len(fnew_classes))
-print('valid_classes:',len(fnew_valid_classes))
-print('valid_classes with non min instances:',len(fnew_valid_classes_total))
-print("#################################")
-print("Filtered same landmarks, baseline subset (0 frames videos substracted) with banning")
-print('classes:',len(filtered_classes))
-print('valid_classes:',len(valid_classes))
-print('valid_classes with non min instances:',len(valid_classes_total))
-
-print("#################################")
-print("Filtered same landmarks, reduced subset with banning")
-print('classes:',len(filtered_classes2))
-print('valid_classes:',len(valid_classes2))
-print('valid_classes with non min instances:',len(valid_classes_total2))
+filtered_dataArrs,filtered_reduceArrs, filtered_videoNames, filtered_classes, valid_classes, valid_classes_total, max_consec,num_false_seq,percentage_reduction_categories = getting_filtered_data(arrData_without_empty,new_arrData,new_videoName,new_classes,min_instances= min_instances,banned_classes=bann)
 
 
-reduced_lengths = np.array(list(map(lambda x: x.shape[0], filtered_dataArrs2)))
+reduced_lengths = np.array(list(map(lambda x: x.shape[0], filtered_reduceArrs)))
 baseline_lengths = np.array(list(map(lambda x: x.shape[0], filtered_dataArrs)))
 
 baseline_classes = filtered_classes
-reduced_classes = filtered_classes2
+reduced_classes = filtered_classes
 
 print("\nDimensions:")
 print("Baseline:",len(filtered_dataArrs))
-print("Reduced:",len(filtered_dataArrs2))
+print("Reduced:",len(filtered_reduceArrs))
 
 # Calculate percentage reduction for each video
 percentage_reductions = ((baseline_lengths - reduced_lengths) / baseline_lengths) * 100
@@ -193,5 +179,12 @@ ax1.legend(loc="center right")
 ax2.set_ylabel("Percentage of Videos [%]", fontsize=12)
 
 plt.tight_layout()
-plt.savefig(f"ESANN_2023/Figures/{DATASET}_new_plot.png", dpi=300)
-plt.savefig(f"ESANN_2023/Figures/{DATASET}_new_plot.svg", dpi=300)
+if VAL and not TRAIN:
+    plt.savefig(f"../ESANN_2023/Figures/{DATASET}_new_plot-Val.png", dpi=300)
+    plt.savefig(f"../ESANN_2023/Figures/{DATASET}_new_plot-Val.svg", dpi=300)
+elif TRAIN and not VAL:
+    plt.savefig(f"../ESANN_2023/Figures/{DATASET}_new_plot-Train.png", dpi=300)
+    plt.savefig(f"../ESANN_2023/Figures/{DATASET}_new_plot-Train.svg", dpi=300)
+else:
+    plt.savefig(f"../ESANN_2023/Figures/{DATASET}_new_plot.png", dpi=300)
+    plt.savefig(f"../ESANN_2023/Figures/{DATASET}_new_plot.svg", dpi=300)
