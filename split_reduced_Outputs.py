@@ -58,7 +58,7 @@ class DataReader():
         data_tmp = [self.data[pos] for pos in indexOrder]
         labels_tmp = [self.labels[pos] for pos in indexOrder]
         # set the path
-        save_path = f"split_reduced/{self.path.split('/')[1]}"
+        save_path = f"../ConnectingPoints/split_reduced/{self.path.split('/')[1]}"
         save_path = save_path.split('.')
 
         if train:
@@ -114,7 +114,7 @@ class DataReader():
 KPMODEL = "mediapipe"
 for DATASET in ["AEC"]:
     print(f"procesing {DATASET}-{KPMODEL}...")
-    path = f"output_reduced/{DATASET}--{KPMODEL}.hdf5"
+    path = f"../ConnectingPoints/output_reduced/{DATASET}--{KPMODEL}.hdf5"
     dataReader = DataReader(path)
     dataReader.splitDataset()
 

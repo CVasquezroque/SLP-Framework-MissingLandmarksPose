@@ -22,11 +22,11 @@ print(KPMODEL)
 print(f'Validation Flag set to {VAL} and Train Flag set to {TRAIN}')
 
 if VAL and not TRAIN:
-    h5_path = f'../split_reduced/{DATASET}--{KPMODEL}-Val.hdf5'
+    h5_path = f'../../ConnectingPoints/split_reduced/{DATASET}--{KPMODEL}-Val.hdf5'
 elif TRAIN and not VAL:
-    h5_path = f'../split_reduced/{DATASET}--{KPMODEL}-Train.hdf5'
+    h5_path = f'../../ConnectingPoints/split_reduced/{DATASET}--{KPMODEL}-Train.hdf5'
 else:
-    h5_path = f'../output_reduced/{DATASET}--{KPMODEL}.hdf5'
+    h5_path = f'../../ConnectingPoints/output_reduced/{DATASET}--{KPMODEL}.hdf5'
 
 classes, videoName, dataArrs = read_h5_indexes(h5_path)
 
